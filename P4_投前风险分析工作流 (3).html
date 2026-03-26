@@ -1,0 +1,1849 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P4 · 投前风险分析工作流 · 生息资产</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+
+  :root {
+    --ink: #1a1814;
+    --ink2: #4a4740;
+    --ink3: #8a8780;
+    --paper: #f8f6f1;
+    --paper2: #f0ede6;
+    --paper3: #e8e4db;
+    --line: rgba(26,24,20,0.1);
+    --line2: rgba(26,24,20,0.2);
+
+    --r5: #C0392B;
+    --r4: #D35400;
+    --r3: #D4AC0D;
+    --r2: #1A6B9A;
+    --r1: #1E8449;
+    --r0: #c0bbb3;
+
+    --step-w: 680px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* ── TOP HEADER ── */
+  .app-header {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .app-header .logo {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    opacity: 0.9;
+  }
+  .app-header .subtitle {
+    font-size: 11px;
+    opacity: 0.45;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  /* ── STEPPER ── */
+  .stepper {
+    display: flex;
+    align-items: stretch;
+    background: var(--ink);
+    padding: 0 32px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    overflow-x: auto;
+  }
+  .step-tab {
+    padding: 12px 20px 10px;
+    font-size: 11px;
+    color: rgba(255,255,255,0.35);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    letter-spacing: 0.03em;
+  }
+  .step-tab:hover { color: rgba(255,255,255,0.65); }
+  .step-tab.active { color: rgba(255,255,255,0.95); border-bottom-color: #c9a96e; }
+  .step-tab.done { color: rgba(255,255,255,0.55); }
+  .step-num {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.1);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .step-tab.active .step-num { background: #c9a96e; color: #1a1814; }
+  .step-tab.done .step-num { background: rgba(255,255,255,0.2); }
+
+  /* ── MAIN AREA ── */
+  .main {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 32px 24px 60px;
+  }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* ── PANEL HEADER ── */
+  .panel-hd {
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--line2);
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .panel-hd h2 {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.3;
+  }
+  .panel-hd .panel-meta {
+    font-size: 12px;
+    color: var(--ink3);
+    text-align: right;
+    line-height: 1.6;
+  }
+
+  /* ── FORM ELEMENTS ── */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .form-grid.tri { grid-template-columns: 1fr 1fr 1fr; }
+  .form-grid.full { grid-template-columns: 1fr; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--ink3);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .field input, .field select, .field textarea {
+    background: white;
+    border: 1px solid var(--line2);
+    border-radius: 4px;
+    padding: 9px 12px;
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--ink);
+    transition: border-color 0.15s;
+    line-height: 1.5;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    outline: none;
+    border-color: #c9a96e;
+    box-shadow: 0 0 0 3px rgba(201,169,110,0.12);
+  }
+  .field textarea { resize: vertical; min-height: 80px; }
+  .field select { cursor: pointer; }
+
+  /* ── HINT BOX ── */
+  .hint {
+    background: rgba(201,169,110,0.08);
+    border-left: 3px solid #c9a96e;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: var(--ink2);
+    border-radius: 0 4px 4px 0;
+    margin-bottom: 20px;
+    line-height: 1.6;
+  }
+
+  /* ── BUTTONS ── */
+  .btn-row { display: flex; gap: 10px; margin-top: 24px; flex-wrap: wrap; align-items: center; }
+  .btn {
+    padding: 10px 20px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    border: 1px solid var(--line2);
+    background: white;
+    color: var(--ink);
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn:hover { background: var(--paper2); border-color: var(--line2); }
+  .btn:active { transform: scale(0.98); }
+  .btn.primary {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+  .btn.primary:hover { background: var(--ink2); }
+  .btn.primary:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn.gold {
+    background: #c9a96e;
+    color: white;
+    border-color: #c9a96e;
+    font-weight: 700;
+  }
+  .btn.gold:hover { background: #b8984d; }
+  .btn.sm { padding: 6px 12px; font-size: 12px; }
+
+  /* ── SECTION DIVIDER ── */
+  .sec-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink3);
+    margin: 24px 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .sec-title::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+
+  /* ═══════════════════════════════════════════
+     STEP 2 — RISK MAP
+  ═══════════════════════════════════════════ */
+  .risk-map-wrap { overflow-x: auto; }
+  .risk-map {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    min-width: 700px;
+    margin-bottom: 16px;
+  }
+  .risk-col {
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .risk-col-hd {
+    padding: 10px 10px 8px;
+    background: var(--paper2);
+    border-bottom: 1px solid var(--line);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ink2);
+    line-height: 1.35;
+    min-height: 52px;
+    display: flex;
+    align-items: flex-start;
+  }
+  .risk-body { padding: 6px; }
+
+  .risk-b2-hd {
+    padding: 6px 8px 4px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--ink2);
+    background: var(--paper3);
+    border-radius: 3px;
+    margin: 4px 0 3px;
+    letter-spacing: 0.02em;
+  }
+
+  .risk-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 6px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background 0.1s;
+    position: relative;
+  }
+  .risk-item:hover { background: var(--paper2); }
+  .risk-dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    border: 1px solid rgba(0,0,0,0.1);
+    transition: background 0.2s;
+  }
+  .risk-label {
+    font-size: 10px;
+    color: var(--ink2);
+    line-height: 1.3;
+    flex: 1;
+  }
+
+  /* color picker popup */
+  #color-picker {
+    position: fixed;
+    z-index: 999;
+    background: var(--ink);
+    border-radius: 6px;
+    padding: 8px;
+    display: none;
+    gap: 5px;
+    flex-wrap: wrap;
+    width: 140px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
+  .cp-swatch {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: transform 0.1s, border-color 0.1s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .cp-swatch:hover { transform: scale(1.2); border-color: rgba(255,255,255,0.5); }
+  .cp-label { font-size: 9px; color: rgba(255,255,255,0.5); width: 100%; text-align: center; padding: 2px 0; }
+
+  /* legend */
+  .risk-legend {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+    font-size: 11px;
+    color: var(--ink2);
+  }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  /* map toolbar */
+  .map-toolbar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+
+  /* stats pills */
+  .stats-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .stat-pill {
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 500;
+    border: 1px solid;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .stat-pill .sp-num { font-size: 16px; font-weight: 700; line-height: 1; }
+
+  /* ═══════════════════════════════════════════
+     AI OUTPUT AREA
+  ═══════════════════════════════════════════ */
+  .ai-box {
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    margin-top: 16px;
+    overflow: hidden;
+  }
+  .ai-box-header {
+    padding: 10px 16px;
+    background: var(--paper2);
+    border-bottom: 1px solid var(--line);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ink3);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .ai-box-body {
+    padding: 16px;
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--ink2);
+    white-space: pre-wrap;
+    max-height: 500px;
+    overflow-y: auto;
+    font-family: 'Noto Sans SC', sans-serif;
+  }
+  .ai-box-body.loading {
+    color: var(--ink3);
+    font-style: italic;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+  /* ═══════════════════════════════════════════
+     STEP 5 — OUTPUTS
+  ═══════════════════════════════════════════ */
+  .output-cards { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 24px; }
+  .output-card {
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .output-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+  .output-card.ready::before { background: var(--r1); }
+  .output-card.pending::before { background: var(--r3); }
+  .output-card.empty::before { background: var(--r0); }
+  .output-card .oc-num {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink3);
+    margin-bottom: 6px;
+  }
+  .output-card .oc-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+    margin-bottom: 6px;
+    line-height: 1.4;
+  }
+  .output-card .oc-desc {
+    font-size: 11px;
+    color: var(--ink3);
+    line-height: 1.5;
+  }
+  .oc-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 500;
+    padding: 3px 8px;
+    border-radius: 10px;
+    margin-top: 8px;
+  }
+  .oc-status.ready { background: rgba(30,132,73,0.1); color: var(--r1); }
+  .oc-status.pending { background: rgba(212,172,13,0.1); color: #a07e00; }
+  .oc-status.empty { background: rgba(192,187,179,0.15); color: var(--ink3); }
+
+  .next-steps {
+    background: var(--ink);
+    border-radius: 6px;
+    padding: 20px 24px;
+    color: var(--paper);
+  }
+  .next-steps h3 {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    opacity: 0.5;
+    margin-bottom: 12px;
+  }
+  .next-step-item {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    margin-bottom: 10px;
+    font-size: 13px;
+    line-height: 1.6;
+    opacity: 0.8;
+  }
+  .ns-num {
+    font-size: 10px;
+    font-weight: 700;
+    background: rgba(255,255,255,0.1);
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+    color: #c9a96e;
+  }
+
+  /* ── FRAMEWORK TABLE ── */
+  .fw-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+  .fw-table th {
+    background: var(--paper2);
+    padding: 8px 10px;
+    text-align: left;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink3);
+    border: 1px solid var(--line);
+    font-weight: 700;
+  }
+  .fw-table td {
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    color: var(--ink2);
+    line-height: 1.6;
+    vertical-align: top;
+  }
+  .fw-table tr:hover td { background: var(--paper2); }
+  .db-badge {
+    display: inline-block;
+    background: rgba(192,57,43,0.1);
+    color: var(--r5);
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 3px;
+    border: 1px solid rgba(192,57,43,0.25);
+    margin-left: 4px;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── REPORT ── */
+  .report-wrap {
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+  .report-section {
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--line);
+  }
+  .report-section:last-child { border-bottom: none; }
+  .rs-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .rs-num {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--ink3);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    background: var(--paper2);
+    padding: 3px 8px;
+    border-radius: 3px;
+  }
+  .rs-title { font-size: 14px; font-weight: 600; color: var(--ink); }
+  .rs-body {
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--ink2);
+    white-space: pre-wrap;
+  }
+
+  /* ── LOADING OVERLAY ── */
+  .loading-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(26,24,20,0.6);
+    z-index: 500;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .loading-overlay.show { display: flex; }
+  .loading-spinner {
+    width: 40px; height: 40px;
+    border: 3px solid rgba(255,255,255,0.2);
+    border-top-color: #c9a96e;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { color: rgba(255,255,255,0.8); font-size: 14px; }
+
+  @media (max-width: 700px) {
+    .risk-map { grid-template-columns: repeat(2, 1fr); }
+    .output-cards { grid-template-columns: 1fr; }
+    .form-grid { grid-template-columns: 1fr; }
+    .form-grid.tri { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="overlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text" id="overlay-text">AI 分析中，请稍候…</div>
+</div>
+
+<div id="color-picker">
+  <div class="cp-label">风险等级</div>
+  <div class="cp-swatch" style="background:var(--r5)" onclick="applyColor(5)" title="5 · 严重"></div>
+  <div class="cp-swatch" style="background:var(--r4)" onclick="applyColor(4)" title="4 · 较大"></div>
+  <div class="cp-swatch" style="background:var(--r3)" onclick="applyColor(3)" title="3 · 一般"></div>
+  <div class="cp-swatch" style="background:var(--r2)" onclick="applyColor(2)" title="2 · 中低"></div>
+  <div class="cp-swatch" style="background:var(--r1)" onclick="applyColor(1)" title="1 · 低风险"></div>
+  <div class="cp-swatch" style="background:var(--r0)" onclick="applyColor(0)" title="未评级"></div>
+</div>
+
+<header class="app-header">
+  <div>
+    <div class="logo">投前风险分析工作流</div>
+    <div class="subtitle">P4 · 项目沟通会阶段 · 生息资产</div>
+  </div>
+  <div style="font-size:11px;opacity:0.35;letter-spacing:0.08em">三个产出物 · 五步完成</div>
+</header>
+
+<nav class="stepper">
+  <div class="step-tab active" id="st1" onclick="goStep(1)">
+    <div class="step-num">1</div>项目信息录入
+  </div>
+  <div class="step-tab" id="st2" onclick="goStep(2)">
+    <div class="step-num">2</div>风险地图标色
+  </div>
+  <div class="step-tab" id="st3" onclick="goStep(3)">
+    <div class="step-num">3</div>定制化风险框架
+  </div>
+  <div class="step-tab" id="st4" onclick="goStep(4)">
+    <div class="step-num">4</div>初步分析报告
+  </div>
+  <div class="step-tab" id="st5" onclick="goStep(5)">
+    <div class="step-num">5</div>产出汇总
+  </div>
+</nav>
+
+<main class="main">
+
+  <!-- ═══════ STEP 1 ═══════ -->
+  <div class="panel active" id="panel1">
+    <div class="panel-hd">
+      <h2>项目基本信息录入</h2>
+      <div class="panel-meta">Step 1 / 5 &nbsp;·&nbsp; 项目沟通会阶段</div>
+    </div>
+    <div class="hint">
+      填写越详细，AI分析质量越高。沟通会阶段信息有限属正常情况，暂无的字段可简短填写或留空，后续补充。
+    </div>
+
+    <div class="sec-title">项目基本情况</div>
+    <div class="form-grid tri">
+      <div class="field">
+        <label>项目名称</label>
+        <input id="f-name" placeholder="如：XX光伏电站收购项目" value="大金重工曹妃甸300MW/1200MWh电网侧独立储能电站（仙人掌项目）" />
+      </div>
+      <div class="field">
+        <label>底层资产类型</label>
+        <select id="f-asset">
+          <option value="集中式光伏电站">集中式光伏电站</option>
+          <option value="电网侧独立储能电站" selected>电网侧独立储能电站</option>
+          <option value="分布式光伏电站">分布式光伏电站</option>
+          <option value="风电场（陆上）">风电场（陆上）</option>
+          <option value="风电场（海上）">风电场（海上）</option>
+          <option value="水电站">水电站</option>
+          <option value="高速公路/收费路桥">高速公路/收费路桥</option>
+          <option value="融资租赁资产包">融资租赁资产包</option>
+          <option value="基础设施REITs底层资产">基础设施REITs底层资产</option>
+          <option value="商业不动产">商业不动产</option>
+          <option value="工业/物流地产">工业/物流地产</option>
+          <option value="基础设施特许经营项目">基础设施特许经营项目</option>
+          <option value="其他生息资产">其他生息资产</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>项目所在地</label>
+        <input id="f-location" placeholder="如：内蒙古·鄂尔多斯" value="河北省唐山市曹妃甸工业装备制造园区" />
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="field">
+        <label>行业 / 细分赛道</label>
+        <input id="f-industry" placeholder="如：新能源 · 集中式地面光伏" value="新型储能·电化学储能·电网侧独立储能" />
+      </div>
+      <div class="field">
+        <label>项目规模</label>
+        <input id="f-scale" placeholder="如：200MW / 总资产约12亿元 / 年发电量4亿度" value="300MW/1200MWh，总投资12.5亿元，60个5MW/20MWh液冷储能单元" />
+      </div>
+    </div>
+
+    <div class="sec-title">公司与运营情况</div>
+    <div class="form-grid full">
+      <div class="field">
+        <label>公司 / 项目主体简介</label>
+        <textarea id="f-company" placeholder="持牌情况（并网证书、土地手续等）、装机规模、并网年限、历史发电量、主要运营指标（利用小时数、弃电率等）、实际控制人背景">截至2026年2月，总资产9.19亿元，负债7.30亿元，所有者权益1.89亿元；项目处于建设期，暂无营收。核心设备：电芯（海辰储能）、电池仓集成（利星能/吉利）。已完成项目备案、土地确权（66,766.65㎡）、电网接入批复，自建220KV升压站，接入方舟220kV变电站，输电距离1.1公里。2026年5月并网，6月交割。项目公司：唐山曹妃甸区祥琛能源有限公司。</textarea>
+      </div>
+    </div>
+
+    <div class="sec-title">交易结构</div>
+    <div class="form-grid">
+      <div class="field">
+        <label>交易结构 / 估值概况</label>
+        <textarea id="f-deal" style="min-height:70px" placeholder="投资金额、拟持股比例、估值倍数（EV/EBITDA等）、收购价格依据">拟投金额不超过4.5亿元（基金70% LP份额），项目资产交易对价不超15亿元，基金规模不超20亿元。20年全投资IRR：中观13.0%，乐观14.7%，悲观7.5%。基金门槛收益率6.2%（LP到手5.5%，管理费68BP+托管费2BP）。首年门槛收益覆盖倍数：中观2.43，悲观1.36。债务结构：金融机构借款约8.6亿元，基金股权出资约6.4亿元。</textarea>
+      </div>
+      <div class="field">
+        <label>核心交易条款</label>
+        <textarea id="f-terms" style="min-height:70px" placeholder="回购条款、对赌条款、分红要求、优先清算权、锁定期、退出安排等">分红：6.2%门槛收益率，CM LP方优先分配，中燃劣后兜底。退出：3年末中燃控股优先回购（行权价=本金+预期收益-已收收益/75%）；证券化/市场化/REITs退出；未行权则分红跳升至12%。增信：业绩对赌+股权/资产质押+资金监管账户+交叉违约条款。不行权措施：收益跳升12%+接管经营+更换运营方+强制出售资产。</textarea>
+      </div>
+    </div>
+
+    <div class="sec-title">合作方与材料</div>
+    <div class="form-grid">
+      <div class="field">
+        <label>合作方 / 交易对手方</label>
+        <textarea id="f-partner" style="min-height:65px" placeholder="对方名称、背景资质、资信情况、历史合作经历、我方在交易中的角色定位">中国燃气控股有限公司（00384.HK），境内AAA信用评级。国内最大跨区域能源服务企业之一，资产规模超2200亿元，员工超8万人。资产负债率约58%，经营现金流稳健。全国储能布局超100个项目，签约规模1.2GWh，已投运超600MWh。融资需求：盘活储能资产，优化负债结构。我方作为优先级LP，CM资本担任基金管理人。</textarea>
+      </div>
+      <div class="field">
+        <label>前台初步报告摘要</label>
+        <textarea id="f-material" style="min-height:65px" placeholder="前台报告核心内容：商业模式、收入构成、主要财务指标（IRR/收益率/现金流）、前台关注点与风险提示">商业模式：电网侧独立储能，通过峰谷套利+容量租赁+辅助服务+容量电价获取收益。收入结构：核心-中长期电能量交易（首年2.14亿元）；保底-容量租赁（190MW大金重工，首年免费，次年起3040万/年）；潜在-容量电价、现货交易、碳交易（暂未计入）。年运行330天，日充放电1.5次，综合效率86.12%，电池年衰减2%。政策亮点：纳入河北省2025年独立储能项目清单；国家2026年1月将电网侧独立储能纳入容量电价机制；充电免输配电费。</textarea>
+      </div>
+    </div>
+    <div class="form-grid full">
+      <div class="field">
+        <label>风控人员初步判断（可选）</label>
+        <textarea id="f-judge" style="min-height:55px" placeholder="基于已知信息，风控人员的直觉判断、最担心的核心风险点、已有的内部参照信息">项目尚处建设期，并网前不确定性最大（2026年5月并网，6月交割，窗口期极短）。电力市场化改革节奏和电价波动是核心不确定因素。中燃AAA增信是最重要安全垫，但需核查其回购能力和劣后兜底实质有效性。悲观情景IRR 7.5%已接近门槛收益率6.2%，缓冲空间有限。电池10年大修（3.6亿元）的资金安排需重点关注。</textarea>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn gold" onclick="goStep(2)">进入风险地图标色 →</button>
+    </div>
+  </div>
+
+  <!-- ═══════ STEP 2 ═══════ -->
+  <div class="panel" id="panel2">
+    <div class="panel-hd">
+      <h2>生息资产项目风险地图</h2>
+      <div class="panel-meta">产出物一 &nbsp;·&nbsp; 5项一级风险 · 17项二级 · 70项三级</div>
+    </div>
+
+    <div class="risk-legend">
+      <span style="font-size:11px;font-weight:700;color:var(--ink3);margin-right:4px">风险等级：</span>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--r5)"></div>5 严重</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--r4)"></div>4 较大</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--r3)"></div>3 一般</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--r2)"></div>2 中低</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--r1)"></div>1 低风险</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--r0)"></div>未评级</div>
+    </div>
+
+    <div class="map-toolbar">
+      <button class="btn gold" onclick="runAIColorMap()" id="btn-aimap">✦ AI 智能标色</button>
+      <button class="btn sm" onclick="resetMap()">重置全部</button>
+      <span style="font-size:11px;color:var(--ink3);margin-left:4px">或手动点击各风险项调整颜色</span>
+    </div>
+
+    <div id="stats-row" class="stats-row" style="display:none"></div>
+
+    <div class="risk-map-wrap">
+      <div class="risk-map" id="risk-map"></div>
+    </div>
+
+    <div id="map-ai-output" class="ai-box" style="display:none">
+      <div class="ai-box-header">
+        <span>AI 标色说明</span>
+        <button class="btn sm" onclick="copyText('map-ai-body')">复制</button>
+      </div>
+      <div class="ai-box-body" id="map-ai-body"></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn" onclick="goStep(1)">← 返回</button>
+      <button class="btn gold" onclick="goStep(3)">生成定制化风险框架 →</button>
+    </div>
+  </div>
+
+  <!-- ═══════ STEP 3 ═══════ -->
+  <div class="panel" id="panel3">
+    <div class="panel-hd">
+      <h2>定制化风险分析框架</h2>
+      <div class="panel-meta">产出物二 &nbsp;·&nbsp; 四要素 × 关键风险点</div>
+    </div>
+    <div class="hint">按「风险来源 × 前提假设 × 风险敞口 × 后果影响」四要素，结合本项目特征生成定制化分析框架。</div>
+
+    <div class="map-toolbar">
+      <button class="btn gold" onclick="runAIFramework()" id="btn-fw">✦ AI 生成风险分析框架</button>
+    </div>
+
+    <div id="fw-output" style="display:none">
+      <div id="fw-table-wrap"></div>
+      <div id="fw-raw" class="ai-box" style="margin-top:12px;display:none">
+        <div class="ai-box-header">
+          <span>原始输出</span>
+          <button class="btn sm" onclick="toggleRaw()">隐藏</button>
+        </div>
+        <div class="ai-box-body" id="fw-raw-body"></div>
+      </div>
+      <div class="btn-row" style="margin-top:12px">
+        <button class="btn sm" onclick="toggleRaw()" id="btn-show-raw">查看原始文本</button>
+        <button class="btn sm" onclick="copyText('fw-raw-body')">复制全文</button>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn" onclick="goStep(2)">← 返回</button>
+      <button class="btn gold" onclick="goStep(4)">生成初步分析报告 →</button>
+    </div>
+  </div>
+
+  <!-- ═══════ STEP 4 ═══════ -->
+  <div class="panel" id="panel4">
+    <div class="panel-hd">
+      <h2>初步风险分析报告</h2>
+      <div class="panel-meta">产出物三 · 仙人掌项目 · 2026年3月20日</div>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px">
+      <div style="background:rgba(192,57,43,0.07);border-radius:6px;padding:12px 16px;border:1px solid rgba(192,57,43,0.15)">
+        <div style="font-size:10px;color:var(--ink3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em">严重风险项 (5级)</div>
+        <div style="font-size:26px;font-weight:700;color:var(--r5);line-height:1">2</div>
+        <div style="font-size:11px;color:var(--r5);margin-top:3px">C4 · C13</div>
+      </div>
+      <div style="background:rgba(211,84,0,0.07);border-radius:6px;padding:12px 16px;border:1px solid rgba(211,84,0,0.15)">
+        <div style="font-size:10px;color:var(--ink3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em">较大风险项 (4级)</div>
+        <div style="font-size:26px;font-weight:700;color:var(--r4);line-height:1">6</div>
+        <div style="font-size:11px;color:var(--r4);margin-top:3px">C1·C9·C11·C12·C34·C35·C41·C45</div>
+      </div>
+      <div style="background:var(--paper2);border-radius:6px;padding:12px 16px;border:1px solid var(--line)">
+        <div style="font-size:10px;color:var(--ink3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em">已评级风险项</div>
+        <div style="font-size:26px;font-weight:700;color:var(--ink);line-height:1">18</div>
+        <div style="font-size:11px;color:var(--ink3);margin-top:3px">共70项已标色18项</div>
+      </div>
+    </div>
+
+    <!-- 报告主体 -->
+    <div class="report-wrap">
+
+      <!-- 第一部分 -->
+      <div class="report-section">
+        <div class="rs-header">
+          <span class="rs-num">第一部分</span>
+          <span class="rs-title">风险总览与投资建议</span>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+          <span style="font-size:11px;color:var(--ink3)">整体风险评级</span>
+          <span style="background:rgba(211,84,0,0.1);color:var(--r4);font-size:13px;font-weight:700;padding:4px 14px;border-radius:4px;border:1px solid rgba(211,84,0,0.25)">中高风险</span>
+          <span style="font-size:12px;color:var(--ink2)">底层资产资质扎实，增信结构完备，但建设期收益假设缺乏历史验证，电力市场化改革带来核心不确定性</span>
+        </div>
+
+        <div style="background:rgba(192,57,43,0.05);border:1px solid rgba(192,57,43,0.15);border-radius:6px;padding:12px 14px;margin-bottom:14px">
+          <div style="font-size:11px;font-weight:700;color:var(--r5);margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em">⚠ Deal Breaker 清单</div>
+          <div style="display:grid;gap:8px">
+            <div style="display:flex;gap:10px;align-items:flex-start">
+              <span style="background:var(--r5);color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;flex-shrink:0;margin-top:1px">DB-1</span>
+              <div>
+                <div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:2px">电价系统性下行</div>
+                <div style="font-size:11px;color:var(--ink3)">触发条件：冀北独储装机激增压缩峰谷价差，跌幅超测算30% ｜ 状态：<strong style="color:var(--r3)">待验证</strong></div>
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;align-items:flex-start">
+              <span style="background:var(--r5);color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;flex-shrink:0;margin-top:1px">DB-2</span>
+              <div>
+                <div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:2px">并网 / 交割延期</div>
+                <div style="font-size:11px;color:var(--ink3)">触发条件：2026年5月并网计划延误，建设期成本持续累积 ｜ 状态：<strong style="color:var(--r3)">待验证</strong></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:rgba(30,132,73,0.05);border:1px solid rgba(30,132,73,0.15);border-radius:6px;padding:12px 14px;margin-bottom:14px">
+          <div style="font-size:11px;font-weight:700;color:var(--r1);margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em">投资建议：有条件推进</div>
+          <div style="font-size:12px;color:var(--ink2);line-height:1.7">须在正式尽调中验证以下三项前提：</div>
+          <div style="margin-top:6px;display:grid;gap:5px">
+            <div style="display:flex;gap:8px;font-size:12px;color:var(--ink2)"><span style="color:var(--r1);font-weight:700;flex-shrink:0">①</span>独立电力市场机构出具冀北峰谷价差趋势报告</div>
+            <div style="display:flex;gap:8px;font-size:12px;color:var(--ink2)"><span style="color:var(--r1);font-weight:700;flex-shrink:0">②</span>实地核查工程进度，确认2026年5月并网无重大风险</div>
+            <div style="display:flex;gap:8px;font-size:12px;color:var(--ink2)"><span style="color:var(--r1);font-weight:700;flex-shrink:0">③</span>明确第10年电池大修（3.6亿元）专项资金安排机制</div>
+          </div>
+        </div>
+
+        <div style="font-size:12px;color:var(--ink2);line-height:1.7;background:var(--paper2);border-radius:5px;padding:10px 12px">
+          <span style="font-weight:600;color:var(--ink)">风险地图概述：</span>A1（资产质量与现金流）红橙为主，C4、C13两项严重红灯；A3（政策与市场）整体橙色；A4（估值与交易）橙黄混杂；A2（合作方）、A5（法律合规）总体蓝绿，中燃AAA增信是全局最重要缓冲层。
+        </div>
+      </div>
+
+      <!-- 第二部分 -->
+      <div class="report-section">
+        <div class="rs-header">
+          <span class="rs-num">第二部分</span>
+          <span class="rs-title">关键风险聚焦（红灯 / 橙灯）</span>
+        </div>
+
+        <div id="risk-cards-container"></div>
+      </div>
+
+      <!-- 第三部分 -->
+      <div class="report-section">
+        <div class="rs-header">
+          <span class="rs-num">第三部分</span>
+          <span class="rs-title">待验证事项与后续尽调建议</span>
+        </div>
+
+        <div style="display:grid;gap:14px">
+
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">一、当前信息不足以判断的关键假设</div>
+            <div style="display:grid;gap:5px" id="assumptions-list"></div>
+          </div>
+
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">二、后续尽调重点方向</div>
+            <div style="display:grid;gap:5px" id="dd-list"></div>
+          </div>
+
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">三、需前台补充的核心材料</div>
+            <div style="display:grid;gap:5px" id="materials-list"></div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <div class="btn-row" style="margin-top:14px">
+      <button class="btn sm" onclick="copyReport()">复制完整报告</button>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn" onclick="goStep(3)">← 返回</button>
+      <button class="btn gold" onclick="goStep(5)">查看产出汇总 →</button>
+    </div>
+  </div>
+
+  <!-- ═══════ STEP 5 ═══════ -->
+  <div class="panel" id="panel5">
+    <div class="panel-hd">
+      <h2>产出物汇总</h2>
+      <div class="panel-meta">Step 5 / 5 &nbsp;·&nbsp; 风控人员审阅修改</div>
+    </div>
+
+    <div class="output-cards" id="output-cards"></div>
+
+    <div class="next-steps">
+      <h3>风控人员下一步工作</h3>
+      <div class="next-step-item">
+        <div class="ns-num">1</div>
+        <div>审阅 AI 初稿，基于内部历史项目参照和行业经验补充专业判断，特别是对 <strong style="color:#c9a96e">Deal Breaker</strong> 风险给出明确的处置意见。</div>
+      </div>
+      <div class="next-step-item">
+        <div class="ns-num">2</div>
+        <div>向前台索取第三部分列明的补充材料，重点核查当前无法判断的关键假设（如电价合同、消纳协议、并网手续等）。</div>
+      </div>
+      <div class="next-step-item">
+        <div class="ns-num">3</div>
+        <div>将三份产出物合并为投委会汇报材料，附完整风险地图标色版作为附件。</div>
+      </div>
+      <div class="next-step-item">
+        <div class="ns-num">4</div>
+        <div>如建议推进，将本次分析结果作为正式尽调阶段的风险核查底稿，逐项验证。</div>
+      </div>
+    </div>
+
+    <div class="btn-row" style="margin-top:20px">
+      <button class="btn" onclick="copyAll()">复制全部产出物</button>
+      <button class="btn" onclick="goStep(1)" style="margin-left:auto">重新开始</button>
+    </div>
+  </div>
+
+</main>
+
+<script>
+/* ══════════════════════════════════════════
+   DATA
+══════════════════════════════════════════ */
+const RISK_DATA = [
+  { id:'A1', label:'A1 资产质量与现金流风险', subs:[
+    { id:'B1', label:'B1 收入稳定性风险', items:['C1 客户集中度风险','C2 客户支付能力风险','C3 客户稳定性风险','C4 价格波动风险'] },
+    { id:'B2', label:'B2 成本与支出风险', items:['C5 运营费用上涨风险','C6 资本开支超支风险','C7 税务成本风险','C8 财务成本上涨风险'] },
+    { id:'B3', label:'B3 资产运营风险', items:['C9 运维稳定性风险','C10 技术替代性风险','C11 资产老化/残值下跌风险','C12 融资风险','C13 运营现金流缺口风险','C14 资产流动性风险','C15 人员稳定性风险'] },
+    { id:'B4', label:'B4 财务规范性风险', items:['C16 财务报表准确性风险','C17 财务舞弊风险','C18 内部控制规范性风险','C19 会计政策及估计不规范风险','C20 表外/或有负债风险','C21 关联方资金占用风险'] }
+  ]},
+  { id:'A2', label:'A2 合作方风险', subs:[
+    { id:'B5', label:'B5 合作方信用风险', items:['C22 合作方负面舆情风险','C23 合作方利益输送风险','C24 利益不一致风险'] },
+    { id:'B6', label:'B6 合作方流动性风险', items:['C25 合作方负债率高企风险','C26 合作方负债传导风险','C27 合作方资金断裂风险','C28 合作方或有负债风险'] },
+    { id:'B7', label:'B7 合作方运营风险', items:['C29 合作方运营能力不足风险','C30 合作方行业经验欠缺风险'] }
+  ]},
+  { id:'A3', label:'A3 政策与市场风险', subs:[
+    { id:'B8', label:'B8 行业监管风险', items:['C31 行业准入与牌照风险','C32 能耗与环保监管风险','C33 数据安全与网络安全风险','C34 产业政策变动风险'] },
+    { id:'B9', label:'B9 市场风险', items:['C35 市场需求波动风险','C36 市场竞争风险'] },
+    { id:'B10', label:'B10 利率与宏观风险', items:['C37 利率波动风险','C38 汇率风险','C39 通胀风险'] }
+  ]},
+  { id:'A4', label:'A4 估值与交易风险', subs:[
+    { id:'B11', label:'B11 盈利预测风险', items:['C40 历史运营数据缺失风险','C41 关键参数假设不合理风险','C42 可分红现金不足风险'] },
+    { id:'B12', label:'B12 估值结果风险', items:['C43 估值方法选择不当风险','C44 估值偏高风险'] },
+    { id:'B13', label:'B13 退出路径风险', items:['C45 退出周期延长风险','C46 治理机制对投资人不利风险','C47 分红条款缺失或不足风险','C48 缺乏投资权益保障风险','C49 无法退出风险'] },
+    { id:'B14', label:'B14 交易确定性风险', items:['C50 交易额度获取风险','C51 募资确定性风险','C52 交易不确定性导致的衍生合规风险','C53 融资风险'] }
+  ]},
+  { id:'A5', label:'A5 法律合规风险', subs:[
+    { id:'B15', label:'B15 股权相关风险', items:['C54 主体资格风险','C55 设立及历史沿革风险','C56 出资和改制瑕疵风险','C57 限制交易风险'] },
+    { id:'B16', label:'B16 公司治理风险', items:['C58 控股股东及实际控制人相关风险','C59 董监高人员组成合规风险','C60 股东会及董事会表决机制风险'] },
+    { id:'B17', label:'B17 其他合规经营风险', items:['C61 违法经营风险','C62 重大债权债务相关风险','C63 劳动人事与社保合规风险','C64 诉讼仲裁和行政处罚风险','C65 同业竞争风险','C66 关联交易风险','C67 知识产权风险','C68 诉讼纠纷风险','C69 对外担保风险','C70 资产权属瑕疵风险'] }
+  ]}
+];
+
+const COLORS = { 5:'#C0392B', 4:'#D35400', 3:'#D4AC0D', 2:'#1A6B9A', 1:'#1E8449', 0:'#c0bbb3' };
+/* ── PRE-FILLED: 仙人掌项目 ── */
+let scores = {
+  C4:5, C13:5,
+  C11:4, C1:4, C35:4, C34:4, C9:4, C12:4, C41:4, C45:4,
+  C44:3, C40:3, C25:3, C62:3, C6:3, C36:3, C37:3, C24:3
+};
+let activeItem = null;
+let fwRawText = `【定制化风险分析框架 · 仙人掌项目 · 电网侧独立储能】
+按风险分析四要素（风险来源 × 前提假设 × 风险敞口 × 后果影响）
+
+1. C4 电价波动风险【5级·严重·⚠️Deal Breaker候选】
+- 风险来源：河北现货市场2026年底正式运行，储能套利从锁定价差转向市场竞价；冀北独储装机持续增加，峰谷价差存在系统性收窄压力
+- 前提假设：峰谷价差0.63元/Wh长期稳定，日充放电1.5次/330天，电能量收入首年2.14亿元
+- 风险敞口：价差每收窄10%约损失收入2140万元；悲观情景IRR从13%降至7.5%，仅高于门槛收益130BP
+- 后果影响：超出中燃对赌补足能力前收益率下行；中燃补足压力累积，增加其3年末行使回购权的财务负担
+
+2. C13 运营现金流缺口风险【5级·严重·⚠️Deal Breaker候选】
+- 风险来源：悲观情景收益覆盖倍数仅1.36；第10年电池大修3.6亿资金来源安排不明确
+- 前提假设：年度可分配利润持续覆盖门槛收益；大修资金通过折旧摊销自然积累
+- 风险敞口：大修年度若现金流缺口达5000万以上，当年分红归零并触发跳升条款
+- 后果影响：基金实际收益率跌破6.2%门槛，触发系列保护条款，最终收益取决于中燃届时兑付能力
+
+3. C1 客户集中度风险【4级·较大】
+- 风险来源：容量租赁收入100%依赖大金重工单一客户，该企业经营情况未作专项尽调
+- 前提假设：190MW租赁协议长期稳定，16万元/MW/年价格不低于市场价，续约无障碍
+- 风险敞口：大金重工违约则减少年收入约3040万元，约占总收入12%，IRR下降约80-100BP
+- 后果影响：单项违约尚可通过中燃对赌补足；若同期叠加电价下行，安全垫将被双重挤压
+
+4. C41 关键参数假设风险【4级·较大】
+- 风险来源：项目无历史运营数据，核心假设尚无本项目验证
+- 前提假设：中燃运营经验可移植，海辰电芯衰减率与标称值一致
+- 风险敞口：利用率低10%则年收入减少约2000万元；若衰减超预期，后期收入递减加速
+- 后果影响：建议尽调阶段调取中燃在运储能项目实际运营数据交叉验证
+
+5. C11 资产老化/大修风险【4级·较大】
+- 风险来源：第10年电池大修成本3.6亿元，资金来源安排不明确
+- 前提假设：大修资金通过20年折旧摊销自然积累，第10年前折旧已够覆盖
+- 风险敞口：若大修年度现金流不足，可能需要股东追加出资或外部再融资
+- 后果影响：大修年度可能触发分红低于门槛收益，引发跳升条款；若再融资失败触发提前回购
+
+6. C45 退出周期延长风险【4级·较大】
+- 风险来源：3年末回购依赖中燃主动行权；REITs/ABS市场窗口不确定
+- 前提假设：中燃2029年财务状况支撑回购；12%跳升将推动中燃主动行权
+- 风险敞口：若中燃不行权且市场化退出困难，投资人资金锁定期超预期
+- 后果影响：LP流动性管理压力上升；强制处置可能面临10-20%折价风险
+
+7. C34 产业政策变动风险【4级·较大】
+- 风险来源：容量电价和充电免输配电费为地方性政策，存在调整风险
+- 前提假设：国家容量电价政策稳定；冀北"四大获益模型"在未来5年维持
+- 风险敞口：若容量电价政策取消，潜在收益归零；但测算中暂未计入，影响为超额收益层
+- 后果影响：基准收益已接近门槛，额外负向冲击的缓冲空间有限
+
+8. C24 利益不一致风险【3级·一般】
+- 风险来源：中燃同时担任运营方、劣后方和回购方，三种角色存在内在利益矛盾
+- 前提假设：业绩对赌和资金监管账户能有效约束中燃运营行为
+- 风险敞口：若中燃倾向于高电价策略换取运营收益最大化，可能损害长期资产寿命
+- 后果影响：需深入核查运营管理协议中考核指标设计，建议引入独立技术顾问运营审计`;
+
+let reportFull = `【初步风险分析报告 · 仙人掌项目 · 电网侧独立储能】
+项目：大金重工曹妃甸300MW/1200MWh电网侧独立储能电站
+报告日期：2026年3月20日 | 分析阶段：项目沟通会阶段
+
+===PART1===
+【第一部分：风险总览与投资建议】
+
+■ 整体风险评级：中高风险
+
+仙人掌项目底层资产资质优良（区位好、设备优、手续全），交易对手中燃AAA增信结构完善，但项目处于尚未并网的建设期，核心现金流假设尚无历史数据验证，且电力市场化改革进入关键窗口期，电价波动成为最核心的不确定因素。悲观情景下IRR仅7.5%，与门槛收益率6.2%的缓冲仅约130BP，安全边际较薄。
+
+■ Deal Breaker 清单：
+
+⚠️ DB-1：电价系统性下行
+触发条件：冀北新增储能装机持续压缩峰谷价差，悲观情景下跌幅超过测算值30%
+当前判断：待验证——需独立测算冀北2026-2028年储能竞争格局与价差趋势
+
+⚠️ DB-2：并网/交割延期
+触发条件：2026年5月并网计划延误，建设期财务成本持续累积，交割窗口关闭
+当前判断：待验证——需核查当前工程进度与设备供应链状态
+
+■ 投资建议：有条件继续推进
+
+前提条件（三项必须在正式尽调中验证）：
+1. 独立测算冀北峰谷价差趋势，确认中观情景收益假设可信
+2. 实地核查工程进度，确认2026年5月并网计划无重大延误风险
+3. 明确电池大修资金的专项安排机制（如设立大修准备金账户）
+
+■ 风险地图概述：
+A1（资产质量与现金流）出现两项严重红灯（C4电价波动、C13现金流缺口）；A3（政策与市场）整体橙色；A4（估值与交易）以橙黄为主；A2（合作方）和A5（法律合规）总体蓝绿，中燃增信是最重要的缓冲层。
+
+===PART2===
+【第二部分：关键风险聚焦（红灯/橙灯）】
+
+⚠️ DB候选【C4 电价波动风险】严重·5级
+- 风险来源：河北现货市场2026年底正式运行，储能套利从锁定价差转向市场竞价；冀北独储装机快速增加，峰谷价差面临系统性收窄压力
+- 前提假设：测算依赖峰谷价差0.63元/Wh长期稳定，日充放电1.5次/330天，电能量收入首年2.14亿元
+- 风险敞口：价差每收窄10%约损失收入2140万元；悲观情景IRR从13%降至7.5%，仅高于门槛收益130BP
+- 后果影响：中燃业绩对赌可补足门槛收益，但悲观情景几乎耗尽安全垫；极端情景下中燃补足压力激增
+
+⚠️ DB候选【C13 运营现金流缺口风险】严重·5级
+- 风险来源：悲观情景收益覆盖倍数仅1.36；第10年电池大修3.6亿资金来源安排不明确
+- 前提假设：年度可分配利润持续覆盖门槛收益；大修资金通过折旧摊销自然积累不需要外部融资
+- 风险敞口：若大修年度现金流缺口达5000万元以上，当年分红归零并触发跳升条款
+- 后果影响：基金实际收益率跌破6.2%门槛，触发系列保护条款，最终收益取决于中燃届时的兑付能力
+
+【C1 客户集中度风险】较大·4级
+- 风险来源：容量租赁收入100%来自大金重工单一客户，该企业经营情况未作专项尽调
+- 前提假设：190MW租赁协议长期稳定，续约无障碍
+- 风险敞口：大金重工违约则减少年收入约3040万元，约占总收入12%，IRR下降约80-100BP
+- 后果影响：单项违约尚可通过中燃对赌补足；若同期叠加电价下行，安全垫将被双重挤压
+
+【C41 关键参数假设风险】较大·4级
+- 风险来源：项目无历史运营数据，核心假设（1.5次/天、330天/年）尚无本项目验证
+- 前提假设：中燃运营经验可移植，海辰电芯衰减率与标称值一致
+- 风险敞口：利用率低10%则年收入减少约2000万元；若衰减超预期，后期收入递减加速
+- 后果影响：建议调取中燃在运储能项目实际运营数据作为交叉验证基础
+
+【C45 退出周期延长风险】较大·4级
+- 风险来源：3年末回购依赖中燃主动行权；REITs/ABS市场窗口存在不确定性
+- 前提假设：2029年中燃财务状况支撑回购，或REITs市场成熟度足以支持市场化退出
+- 风险敞口：若延期2年以上，LP流动性管理压力显著上升；若强制出售，资产折价风险10-20%
+- 后果影响：建议在基金合同中明确触发强制出售的时间节点和定价机制
+
+【C34 产业政策变动风险】较大·4级
+- 风险来源：容量电价和充电免输配电费等政策为地方性政策，存在调整风险
+- 前提假设：国家层面容量电价政策2026年1月已明确，预计稳定
+- 风险敞口：若容量电价政策取消，测算中"潜在收益"归零
+- 后果影响：基准收益已接近门槛，额外负向冲击的缓冲空间有限
+
+===PART3===
+【第三部分：待验证事项与后续尽调建议】
+
+一、当前信息不足以判断的关键假设（5条）：
+1. 冀北峰谷价差趋势：现货市场正式运行后，峰谷价差能否维持测算水平？需独立机构测算
+2. 工程进度与并网可行性：2026年5月并网是否存在延误风险？当前土建和设备安装进度如何？
+3. 电池大修资金安排：第10年3.6亿大修资金是否有专项准备金账户？还是依赖届时再融资？
+4. 中燃回购能力验证：3年后中燃财务状况、负债率变化趋势和届时流动性状况
+5. 大金重工租赁协议实质：协议是否已生效？是否有违约金条款？大金重工自身信用状况？
+
+二、后续尽调重点方向（5条）：
+1. 技术尽调（优先级最高）：聘请独立储能技术顾问，核查工程进度、设备质量、海辰电芯实际衰减数据，出具独立发电量测算报告
+2. 电力市场专项研究：委托独立电力市场咨询机构测算冀北2026-2030年储能收益，给出三情景分析
+3. 法律尽调：重点核查土地权属（66,766㎡工业用地）、电网接入协议条款、项目公司股权无瑕疵
+4. 财务尽调：核查建设期支出真实性，确认银行借款合同中无限制股权转让或提前还款触发条款
+5. 中燃信用专项：获取中燃最新财报，独立评估其在3年后行权的财务能力
+
+三、需前台/被投方补充的核心材料（3项）：
+1. 完整EPC合同及当前工程进度报告（含设备采购合同及付款进度）
+2. 冀北电网调度部门出具的电网接入及消纳能力确认函
+3. 大金重工容量租赁协议正式文本（确认协议是否已生效、期限、违约责任条款）`;
+
+/* ══════════════════════════════════════════
+   BUILD RISK MAP
+══════════════════════════════════════════ */
+function buildMap() {
+  const container = document.getElementById('risk-map');
+  container.innerHTML = '';
+  RISK_DATA.forEach(a => {
+    const col = document.createElement('div');
+    col.className = 'risk-col';
+    const hd = document.createElement('div');
+    hd.className = 'risk-col-hd';
+    hd.textContent = a.label;
+    col.appendChild(hd);
+    const body = document.createElement('div');
+    body.className = 'risk-body';
+    a.subs.forEach(b => {
+      const bhd = document.createElement('div');
+      bhd.className = 'risk-b2-hd';
+      bhd.style.cursor = 'pointer';
+      const bkey = b.id;
+      bhd.innerHTML = `<span class="risk-dot" id="dot-${bkey}" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${COLORS[scores[bkey]||0]};margin-right:5px;vertical-align:middle"></span>${b.label.replace(bkey+' ','')}`;
+      bhd.onclick = (e) => openPicker(e, bkey);
+      body.appendChild(bhd);
+      b.items.forEach(c => {
+        const ckey = c.split(' ')[0];
+        const clabel = c.replace(ckey+' ','');
+        const item = document.createElement('div');
+        item.className = 'risk-item';
+        item.innerHTML = `<div class="risk-dot" id="dot-${ckey}" style="background:${COLORS[scores[ckey]||0]}"></div><span class="risk-label">${clabel}</span>`;
+        item.onclick = (e) => openPicker(e, ckey);
+        body.appendChild(item);
+      });
+    });
+    col.appendChild(body);
+    container.appendChild(col);
+  });
+  updateStats();
+}
+
+function updateStats() {
+  const cnt = {5:0,4:0,3:0,2:0,1:0,total:0};
+  Object.values(scores).forEach(v => { if(v>0){cnt[v]=(cnt[v]||0)+1; cnt.total++;} });
+  const row = document.getElementById('stats-row');
+  if(cnt.total === 0){ row.style.display='none'; return; }
+  row.style.display='flex';
+  row.innerHTML = `
+    ${cnt[5]>0?`<div class="stat-pill" style="background:rgba(192,57,43,0.08);color:var(--r5);border-color:rgba(192,57,43,0.2)"><span class="sp-num">${cnt[5]}</span> 严重</div>`:''}
+    ${cnt[4]>0?`<div class="stat-pill" style="background:rgba(211,84,0,0.08);color:var(--r4);border-color:rgba(211,84,0,0.2)"><span class="sp-num">${cnt[4]}</span> 较大</div>`:''}
+    ${cnt[3]>0?`<div class="stat-pill" style="background:rgba(212,172,13,0.08);color:#9a7a00;border-color:rgba(212,172,13,0.2)"><span class="sp-num">${cnt[3]}</span> 一般</div>`:''}
+    ${cnt[2]>0?`<div class="stat-pill" style="background:rgba(26,107,154,0.08);color:var(--r2);border-color:rgba(26,107,154,0.2)"><span class="sp-num">${cnt[2]}</span> 中低</div>`:''}
+    ${cnt[1]>0?`<div class="stat-pill" style="background:rgba(30,132,73,0.08);color:var(--r1);border-color:rgba(30,132,73,0.2)"><span class="sp-num">${cnt[1]}</span> 低风险</div>`:''}
+    <div class="stat-pill" style="background:var(--paper2);color:var(--ink3);border-color:var(--line2)"><span class="sp-num">${cnt.total}</span> 已评级</div>
+  `;
+}
+
+function openPicker(e, key) {
+  e.stopPropagation();
+  activeItem = key;
+  const picker = document.getElementById('color-picker');
+  picker.style.display = 'flex';
+  picker.style.left = Math.min(e.clientX+5, window.innerWidth-155)+'px';
+  picker.style.top = Math.min(e.clientY+5, window.innerHeight-80)+'px';
+}
+function applyColor(level) {
+  if(!activeItem) return;
+  scores[activeItem] = level;
+  const dot = document.getElementById('dot-'+activeItem);
+  if(dot) dot.style.background = COLORS[level];
+  document.getElementById('color-picker').style.display = 'none';
+  activeItem = null;
+  updateStats();
+}
+function resetMap() {
+  scores = {};
+  buildMap();
+}
+document.addEventListener('click', () => {
+  document.getElementById('color-picker').style.display='none';
+  activeItem = null;
+});
+
+/* ══════════════════════════════════════════
+   HELPERS
+══════════════════════════════════════════ */
+function getProjectInfo() {
+  return [
+    `项目名称：${v('f-name')||'（未填）'}`,
+    `底层资产类型：${v('f-asset')}`,
+    `行业/赛道：${v('f-industry')||'（未填）'}`,
+    `项目所在地：${v('f-location')||'（未填）'}`,
+    `项目规模：${v('f-scale')||'（未填）'}`,
+    `公司/主体简介：${v('f-company')||'（未填）'}`,
+    `交易结构/估值：${v('f-deal')||'（未填）'}`,
+    `核心交易条款：${v('f-terms')||'（未填）'}`,
+    `合作方信息：${v('f-partner')||'（未填）'}`,
+    `前台材料摘要：${v('f-material')||'（未填）'}`,
+    `风控初步判断：${v('f-judge')||'（无）'}`
+  ].join('\n');
+}
+function getRiskSummary() {
+  const byLv = {5:[],4:[],3:[],2:[],1:[]};
+  Object.entries(scores).filter(([k,v])=>v>0).forEach(([k,v])=>{byLv[v].push(k);});
+  return [5,4,3,2,1].filter(l=>byLv[l].length)
+    .map(l=>`等级${l}（${['','低风险','中低','一般','较大','严重'][l]}）：${byLv[l].join('、')}`).join('\n') || '暂未评级';
+}
+function v(id) { const el=document.getElementById(id); return el?el.value.trim():''; }
+function showOverlay(msg){ const o=document.getElementById('overlay'); o.classList.add('show'); document.getElementById('overlay-text').textContent=msg; }
+function hideOverlay(){ document.getElementById('overlay').classList.remove('show'); }
+
+async function callAI(prompt) {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2000,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error('API错误 ' + res.status + ': ' + errText.slice(0, 200));
+  }
+  const data = await res.json();
+  return (data.content || []).map(b => b.text || '').join('');
+}
+
+/* ══════════════════════════════════════════
+   AI COLOR MAP
+══════════════════════════════════════════ */
+async function runAIColorMap() {
+  const btn = document.getElementById('btn-aimap');
+  btn.disabled=true; btn.textContent='分析中…';
+  showOverlay('AI 智能标色中，正在分析70项风险…');
+  const prompt = `你是私募股权投资机构的资深风控专家，专注生息资产投资风险识别。
+
+请基于以下项目信息，对"生息资产风险地图"中的各风险项进行五级风险评级。
+
+【项目信息】
+${getProjectInfo()}
+
+【评级规则】
+- 5=严重风险（红灯，极可能发生且影响严重，可能构成deal breaker）
+- 4=较大风险（橙灯，较大可能性，对投资收益影响显著）
+- 3=一般风险（黄灯，需关注但可管控）
+- 2=中低风险（蓝灯，风险较低）
+- 1=低风险（绿灯，基本无需担忧）
+- 0=暂未识别（信息不足）
+
+【请输出】
+1. 评级结果（格式：C1:4, C4:5, C9:3 …，仅列出≥3级风险项）
+2. 高风险区域说明（针对本项目类型，解释各4-5级风险项的核心逻辑，100字内）
+3. 潜在Deal Breaker（如有，明确列出并说明理由）
+
+注意：基于${v('f-asset')}项目特点，重点关注电价/收入稳定性、并网及政策风险、合作方信用、估值合理性和退出路径。请用中文回复。`;
+
+  try {
+    const text = await callAI(prompt);
+    const out = document.getElementById('map-ai-output');
+    out.style.display = 'block';
+    document.getElementById('map-ai-body').textContent = text;
+    const matches = [...text.matchAll(/C(\d+)\s*[:：]\s*([1-5])/g)];
+    matches.forEach(m => {
+      const key='C'+m[1], lv=parseInt(m[2]);
+      scores[key]=lv;
+      const dot=document.getElementById('dot-'+key);
+      if(dot) dot.style.background=COLORS[lv];
+    });
+    updateStats();
+  } catch(e) {
+    const msg = e.message.includes('Failed to fetch')
+      ? '网络请求失败：请确保在 claude.ai Artifact 中运行，不能直接打开本地 HTML 文件'
+      : '请求失败：' + e.message;
+    document.getElementById('map-ai-output').style.display='block';
+    document.getElementById('map-ai-body').textContent = '⚠️ ' + msg;
+  }
+  hideOverlay();
+  btn.disabled=false; btn.textContent='✦ AI 智能标色';
+}
+
+/* ══════════════════════════════════════════
+   AI FRAMEWORK
+══════════════════════════════════════════ */
+async function runAIFramework() {
+  const btn = document.getElementById('btn-fw');
+  btn.disabled=true; btn.textContent='生成中…';
+  showOverlay('AI 正在生成定制化风险分析框架…');
+
+  const high = Object.entries(scores).filter(([k,v])=>v>=4).map(([k,v])=>`${k}(${v}级)`).join('、') || '暂无高风险标记';
+  const med = Object.entries(scores).filter(([k,v])=>v===3).map(([k,v])=>k).join('、') || '无';
+
+  const prompt = `你是私募股权投资机构的资深风控专家。请为以下${v('f-asset')}项目生成定制化风险分析框架。
+
+【项目信息】
+${getProjectInfo()}
+
+【风险地图高风险项（≥4级）】${high}
+【中等风险项（3级）】${med}
+
+请按"风险分析四要素"为本项目生成针对性框架：
+
+输出格式（请严格按以下JSON数组格式输出，便于解析）：
+[
+  {
+    "id": "风险编号如C4",
+    "name": "风险名称",
+    "level": 风险等级数字,
+    "dealBreaker": true或false,
+    "source": "风险来源（1-2句）",
+    "assumption": "前提假设（当前估值依赖的关键假设，1-2句）",
+    "exposure": "风险敞口（可量化则量化，如影响IRR约X个BP，1-2句）",
+    "consequence": "后果影响（对投资收益/退出的具体影响，1-2句）"
+  }
+]
+
+要求：
+- 选取最关键的5-8个风险点（优先选高风险项），不要面面俱到
+- 结合${v('f-asset')}底层资产特征分析，体现行业专业性
+- 有deal breaker嫌疑的必须标注
+- 只输出JSON数组，不要其他文字`;
+
+  try {
+    const text = await callAI(prompt);
+    fwRawText = text;
+    document.getElementById('fw-raw-body').textContent = text;
+    renderFrameworkTable(text);
+    document.getElementById('fw-output').style.display='block';
+  } catch(e) {
+    const msg = e.message.includes('Failed to fetch')
+      ? '网络请求失败：请确保在 claude.ai Artifact 中运行，不能直接打开本地 HTML 文件'
+      : '请求失败：' + e.message;
+    document.getElementById('fw-output').style.display='block';
+    document.getElementById('fw-table-wrap').innerHTML = '<div style="padding:16px;color:var(--r5)">⚠️ ' + msg + '</div>';
+  }
+  hideOverlay();
+  btn.disabled=false; btn.textContent='✦ AI 生成风险分析框架';
+}
+
+function renderFrameworkTable(text) {
+  let items = [];
+  try {
+    const match = text.match(/\[[\s\S]*\]/);
+    if(match) items = JSON.parse(match[0]);
+  } catch(e) { items=[]; }
+
+  const wrap = document.getElementById('fw-table-wrap');
+  if(!items.length) {
+    wrap.innerHTML = `<div class="ai-box"><div class="ai-box-header">框架内容</div><div class="ai-box-body">${text}</div></div>`;
+    return;
+  }
+
+  const lvLabels = ['','低风险','中低','一般','较大','严重'];
+  const lvColors = ['var(--r0)','var(--r1)','var(--r2)','var(--r3)','var(--r4)','var(--r5)'];
+
+  let html = `<table class="fw-table">
+    <thead><tr>
+      <th style="width:90px">风险项</th>
+      <th style="width:50px">等级</th>
+      <th>风险来源</th>
+      <th>前提假设</th>
+      <th>风险敞口</th>
+      <th>后果影响</th>
+    </tr></thead><tbody>`;
+  items.forEach(r => {
+    const db = r.dealBreaker ? '<span class="db-badge">⚠ DEAL BREAKER</span>' : '';
+    html += `<tr>
+      <td style="font-weight:600;color:var(--ink)">${r.id||''} ${r.name||''}${db}</td>
+      <td><span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:${lvColors[r.level||0]}">
+        <span style="width:8px;height:8px;border-radius:50%;background:${lvColors[r.level||0]};flex-shrink:0;display:inline-block"></span>
+        ${r.level} ${lvLabels[r.level||0]}
+      </span></td>
+      <td>${r.source||''}</td>
+      <td>${r.assumption||''}</td>
+      <td>${r.exposure||''}</td>
+      <td>${r.consequence||''}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+function toggleRaw() {
+  const raw = document.getElementById('fw-raw');
+  const btn = document.getElementById('btn-show-raw');
+  if(raw.style.display==='none'||!raw.style.display) {
+    raw.style.display='block'; btn.textContent='隐藏原始文本';
+  } else {
+    raw.style.display='none'; btn.textContent='查看原始文本';
+  }
+}
+
+/* ══════════════════════════════════════════
+   STEP 4 — 通过 sendPrompt 触发 Claude 生成报告
+══════════════════════════════════════════ */
+function sendReportPrompt() {
+  const red = Object.entries(scores).filter(([k,v])=>v===5).map(([k])=>k).join('、')||'无';
+  const orange = Object.entries(scores).filter(([k,v])=>v===4).map(([k])=>k).join('、')||'无';
+
+  const prompt = `请作为私募股权投资机构的资深风控专家，为以下项目撰写投前初步风险分析报告（项目沟通会阶段，约2-3页）。
+
+【项目信息】
+${getProjectInfo()}
+
+【风险地图评级结果】
+严重风险(5级/红灯)：${red}
+较大风险(4级/橙灯)：${orange}
+${getRiskSummary()}
+
+【定制化风险框架参考】
+${fwRawText||'（未生成，请直接基于项目信息分析）'}
+
+请严格按以下三部分结构输出，用分隔符===PART1=== ===PART2=== ===PART3===标注各部分：
+
+===PART1===
+• 整体风险评级（高风险/中高风险/中风险/中低风险）+ 一句话定性
+• Deal Breaker清单（如有，不超过3条）
+• 投资建议（是否推进及前提条件）
+• 风险地图概述（一句话描述各一级风险区域颜色分布）
+
+===PART2===
+对每个5级和4级风险项按四要素分析，Deal Breaker用⚠️标注：
+【Cx 风险名称】[等级]
+- 风险来源：
+- 前提假设：
+- 风险敞口：
+- 后果影响：
+
+===PART3===
+1. 当前信息不足以判断的关键假设（3-5条）
+2. 后续尽调重点方向（3-5条）
+3. 需前台/被投方补充的核心材料（2-3项）
+
+报告风格：结论先行、专业严谨，可直接用于投委会前汇报。中文。`;
+
+  sendPrompt(prompt);
+}
+
+function parsePastedReport(text) {
+  if (!text || text.trim().length < 50) return;
+  reportFull = text;
+
+  document.getElementById('report-output').style.display = 'block';
+  document.getElementById('report-stats').style.display = 'grid';
+
+  // 更新统计卡片
+  const red = Object.values(scores).filter(v=>v===5).length;
+  const orange = Object.values(scores).filter(v=>v===4).length;
+  const total = Object.keys(scores).length;
+  const cards = document.getElementById('report-stats');
+  cards.children[0].querySelector('div:last-child').textContent = red;
+  cards.children[1].querySelector('div:last-child').textContent = orange;
+  cards.children[2].querySelector('div:last-child').textContent = total;
+
+  // 解析三部分
+  const ep = (t, s, e) => {
+    const re = e
+      ? new RegExp('===\s*' + s + '\s*===([\s\S]*?)===\s*' + e + '\s*===')
+      : new RegExp('===\s*' + s + '\s*===([\s\S]*?)$');
+    const m = t.match(re);
+    return m ? m[1].trim() : '';
+  };
+
+  const p1 = ep(text, 'PART1', 'PART2');
+  const p2 = ep(text, 'PART2', 'PART3');
+  const p3 = ep(text, 'PART3', null);
+
+  document.getElementById('rpt-part1').textContent = p1 || text;
+  document.getElementById('rpt-part2').textContent = p2 || '（未能解析，请检查格式）';
+  document.getElementById('rpt-part3').textContent = p3 || '（未能解析，请检查格式）';
+}
+
+function extractPart(text, start, end) {
+  const re = end
+    ? new RegExp(`===\\s*${start}\\s*===([\\s\\S]*?)===\\s*${end}\\s*===`)
+    : new RegExp(`===\\s*${start}\\s*===([\\s\\S]*?)$`);
+  const m = text.match(re);
+  return m ? m[1].trim() : '';
+}
+
+/* ══════════════════════════════════════════
+   STEP 5 SUMMARY
+══════════════════════════════════════════ */
+function buildOutputSummary() {
+  const scored = Object.keys(scores).length;
+  const highRisk = Object.values(scores).filter(v=>v>=4).length;
+  const hasFw = !!fwRawText;
+  const hasRpt = !!reportFull;
+
+  const cards = [
+    {
+      num:'产出物一', title:'项目风险地图（标色版）',
+      desc: scored > 0 ? `已评级 ${scored} 项风险，其中严重/较大风险 ${highRisk} 项` : '尚未进行标色评级',
+      status: scored > 0 ? 'ready' : 'empty',
+      statusText: scored > 0 ? '已完成' : '未完成'
+    },
+    {
+      num:'产出物二', title:'定制化风险分析框架',
+      desc: hasFw ? '已按四要素生成针对本项目的定制化框架' : '尚未生成，请返回 Step 3',
+      status: hasFw ? 'ready' : 'empty',
+      statusText: hasFw ? '已完成' : '未完成'
+    },
+    {
+      num:'产出物三', title:'初步风险分析报告（2-3页）',
+      desc: hasRpt ? '倒金字塔结构报告已生成，可直接用于投委会汇报' : '尚未生成，请返回 Step 4',
+      status: hasRpt ? 'ready' : 'empty',
+      statusText: hasRpt ? '已完成' : '未完成'
+    }
+  ];
+
+  document.getElementById('output-cards').innerHTML = cards.map(c=>`
+    <div class="output-card ${c.status}">
+      <div class="oc-num">${c.num}</div>
+      <div class="oc-title">${c.title}</div>
+      <div class="oc-desc">${c.desc}</div>
+      <div class="oc-status ${c.status}">${c.status==='ready'?'✓':''} ${c.statusText}</div>
+    </div>
+  `).join('');
+}
+
+/* ══════════════════════════════════════════
+   COPY HELPERS
+══════════════════════════════════════════ */
+function copyText(id) {
+  const el = document.getElementById(id);
+  if(el) navigator.clipboard.writeText(el.textContent).catch(()=>{});
+}
+function copyReport() {
+  const p1 = document.getElementById('rpt-part1').textContent;
+  const p2 = document.getElementById('rpt-part2').textContent;
+  const p3 = document.getElementById('rpt-part3').textContent;
+  navigator.clipboard.writeText([
+    '【第一部分：风险总览与投资建议】\n'+p1,
+    '\n\n【第二部分：关键风险聚焦】\n'+p2,
+    '\n\n【第三部分：待验证事项与尽调建议】\n'+p3
+  ].join('')).catch(()=>{});
+}
+function copyAll() {
+  const mapText = '=== 产出物一：风险地图标色 ===\n' + getRiskSummary();
+  const fwText = '=== 产出物二：定制化风险框架 ===\n' + (fwRawText||'未生成');
+  const rptText = '=== 产出物三：初步风险分析报告 ===\n' + (reportFull||'未生成');
+  navigator.clipboard.writeText([mapText, fwText, rptText].join('\n\n')).catch(()=>{});
+}
+
+/* ══════════════════════════════════════════
+   NAVIGATION
+══════════════════════════════════════════ */
+function goStep(n) {
+  for(let i=1;i<=5;i++){
+    document.getElementById('panel'+i).className = 'panel'+(i===n?' active':'');
+    const tab = document.getElementById('st'+i);
+    tab.className = 'step-tab'+(i===n?' active':(i<n?' done':''));
+  }
+  if(n===5) buildOutputSummary();
+  window.scrollTo(0,0);
+}
+
+/* ── init: pre-load 仙人掌项目分析结果 ── */
+buildMap();
+
+// 渲染风险框架表格
+(function(){
+  const items = [
+    {id:'C4',name:'电价波动风险',level:5,dealBreaker:true,
+     source:'河北现货市场2026年底正式运行，储能套利从锁定价差转向市场竞价；冀北独储装机持续增加，峰谷价差面临系统性收窄压力',
+     assumption:'峰谷价差0.63元/Wh长期稳定，日充放电1.5次/330天，电能量收入首年2.14亿元',
+     exposure:'价差每收窄10%约损失收入2140万元；悲观情景IRR从13%降至7.5%，仅高于门槛收益130BP',
+     consequence:'超出中燃对赌补足能力前收益率持续下行；极端情景下中燃补足压力激增，影响3年末回购能力'},
+    {id:'C13',name:'运营现金流缺口风险',level:5,dealBreaker:true,
+     source:'悲观情景收益覆盖倍数仅1.36；第10年电池大修3.6亿资金来源安排不明确',
+     assumption:'年度可分配利润持续覆盖门槛收益；大修资金通过折旧摊销自然积累',
+     exposure:'大修年度若现金流缺口达5000万以上，当年分红归零并触发跳升条款',
+     consequence:'基金实际收益率跌破6.2%门槛，触发系列保护条款，最终收益取决于中燃届时兑付能力'},
+    {id:'C1',name:'客户集中度风险',level:4,dealBreaker:false,
+     source:'容量租赁收入100%依赖大金重工单一客户，该企业经营情况未作专项尽调',
+     assumption:'190MW租赁协议长期稳定，16万元/MW/年价格不低于市场价，续约无障碍',
+     exposure:'大金重工违约则减少年收入约3040万元（约占总收入12%），IRR下降约80-100BP',
+     consequence:'单项违约尚可通过中燃对赌补足；若同期叠加电价下行，安全垫将被双重挤压'},
+    {id:'C41',name:'关键参数假设风险',level:4,dealBreaker:false,
+     source:'项目无历史运营数据，核心假设（1.5次/天、330天/年）尚无本项目验证',
+     assumption:'中燃运营经验可移植，海辰电芯衰减率与标称值一致',
+     exposure:'利用率低10%则年收入减少约2000万元；若衰减超预期，后期收入递减加速',
+     consequence:'建议调取中燃在运储能项目实际运营数据作为交叉验证基础'},
+    {id:'C11',name:'资产老化/大修风险',level:4,dealBreaker:false,
+     source:'第10年电池大修成本3.6亿，资金来源安排不明确；液冷储能长周期衰减数据积累有限',
+     assumption:'大修资金通过20年折旧摊销自然积累，第10年前折旧已够覆盖',
+     exposure:'若大修年度现金流不足，可能需要股东追加出资或外部再融资',
+     consequence:'大修年度可能触发分红低于门槛收益，引发跳升条款；若再融资失败触发提前回购'},
+    {id:'C45',name:'退出周期延长风险',level:4,dealBreaker:false,
+     source:'3年末回购依赖中燃主动行权；REITs/ABS市场窗口存在不确定性',
+     assumption:'2029年中燃财务状况支撑回购，或REITs市场成熟度足以支持市场化退出',
+     exposure:'若延期2年以上，LP流动性管理压力显著上升；强制出售资产折价风险10-20%',
+     consequence:'建议在基金合同中明确触发强制出售的时间节点和定价机制'},
+    {id:'C34',name:'产业政策变动风险',level:4,dealBreaker:false,
+     source:'容量电价和充电免输配电费为地方性政策，存在调整风险',
+     assumption:'国家层面容量电价政策2026年1月已明确，预计稳定',
+     exposure:'若容量电价政策取消，测算中潜在收益归零',
+     consequence:'基准收益已接近门槛，额外负向冲击的缓冲空间有限'},
+    {id:'C24',name:'利益不一致风险',level:3,dealBreaker:false,
+     source:'中燃同时担任运营方、劣后方和回购方，三种角色利益方向存在内在矛盾',
+     assumption:'业绩对赌和资金监管账户能有效约束中燃运营行为',
+     exposure:'若中燃倾向于高电价策略最大化运营收益，可能损害长期资产寿命',
+     consequence:'需深入核查运营管理协议中考核指标设计，建议引入独立技术顾问运营审计'}
+  ];
+  const lvLabels = ['','低风险','中低','一般','较大','严重'];
+  const lvColors = ['var(--r0)','var(--r1)','var(--r2)','var(--r3)','var(--r4)','var(--r5)'];
+  let html = `<table class="fw-table"><thead><tr>
+    <th style="width:100px">风险项</th>
+    <th style="width:55px">等级</th>
+    <th>风险来源</th>
+    <th>前提假设</th>
+    <th>风险敞口</th>
+    <th>后果影响</th>
+  </tr></thead><tbody>`;
+  items.forEach(r => {
+    const db = r.dealBreaker ? '<span class="db-badge">⚠ DEAL BREAKER</span>' : '';
+    html += `<tr>
+      <td style="font-weight:600;color:var(--ink)">${r.id} ${r.name}${db}</td>
+      <td><span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:${lvColors[r.level||0]}">
+        <span style="width:8px;height:8px;border-radius:50%;background:${lvColors[r.level||0]};flex-shrink:0;display:inline-block"></span>
+        ${r.level} ${lvLabels[r.level||0]}
+      </span></td>
+      <td>${r.source}</td>
+      <td>${r.assumption}</td>
+      <td>${r.exposure}</td>
+      <td>${r.consequence}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  const wrap = document.getElementById('fw-table-wrap');
+  if(wrap) { wrap.innerHTML = html; document.getElementById('fw-output').style.display='block'; }
+})();
+
+// 渲染报告
+(function(){
+  function extractPart(text, start, end) {
+    const re = end
+      ? new RegExp('===\s*'+start+'\s*===([\s\S]*?)===\s*'+end+'\s*===')
+      : new RegExp('===\s*'+start+'\s*===([\s\S]*?)$');
+    const m = text.match(re);
+    return m ? m[1].trim() : '';
+  }
+  const p1 = extractPart(reportFull,'PART1','PART2');
+  const p2 = extractPart(reportFull,'PART2','PART3');
+  const p3 = extractPart(reportFull,'PART3',null);
+  const el1=document.getElementById('rpt-part1');
+  const el2=document.getElementById('rpt-part2');
+  const el3=document.getElementById('rpt-part3');
+  if(el1){el1.textContent=p1; document.getElementById('report-output').style.display='block';}
+  if(el2) el2.textContent=p2;
+  if(el3) el3.textContent=p3;
+  // stats
+  const red = Object.entries(scores).filter(([k,v])=>v===5).length;
+  const orange = Object.entries(scores).filter(([k,v])=>v===4).length;
+  const statsDiv = document.getElementById('report-stats');
+  if(statsDiv){
+    statsDiv.style.display='grid';
+    statsDiv.innerHTML = '';
+  }
+})();
+
+// 跳转到Step 2（风险地图已标色）
+goStep(2);
+updateStats();
+
+// ── 渲染第4步报告内容 ──
+(function renderReport() {
+  const CL = {5:'#C0392B',4:'#D35400',3:'#D4AC0D',2:'#1A6B9A',1:'#1E8449',0:'#c0bbb3'};
+  const LL = {5:'严重·5级',4:'较大·4级',3:'一般·3级',2:'中低·2级',1:'低风险·1级'};
+
+  // 关键风险卡片数据
+  const risks = [
+    {id:'C4', name:'价格波动风险', level:5, db:true,
+     src:'河北现货市场2026年底正式运行，储能套利从锁定价差转向市场竞价；冀北独储装机快速扩张，峰谷价差面临系统性收窄压力',
+     ass:'测算依赖峰谷价差0.63元/Wh长期稳定，日充放电1.5次/330天，电能量收入首年2.14亿元',
+     exp:'价差每收窄10%，年收入减少约2,140万元；悲观情景IRR从13%降至7.5%，仅高于门槛收益130BP',
+     con:'中燃业绩对赌可兜底门槛收益，但安全垫几乎耗尽；极端情景下中燃补足压力持续累积，削弱其3年末回购意愿'},
+    {id:'C13', name:'运营现金流缺口风险', level:5, db:true,
+     src:'悲观情景收益覆盖倍数仅1.36；第10年电池大修成本3.6亿元，资金来源安排在现有材料中未见明确说明',
+     ass:'年度可分配利润持续足额覆盖门槛收益；大修资金通过折旧摊销（约0.63亿/年）自然积累',
+     exp:'大修年度若现金流缺口超5,000万元，当年分红归零并触发12%跳升条款；若再融资受阻则触发提前回购',
+     con:'基金实际收益率跌破6.2%门槛，引发保护条款连锁触发，结果高度依赖中燃届时兑付意愿与能力'},
+    {id:'C1', name:'客户集中度风险', level:4, db:false,
+     src:'容量租赁收入100%来自大金重工单一客户（190MW），对该企业未作专项信用尽调',
+     ass:'租赁协议已生效且长期有效，16万元/MW/年价格合理，续约无实质障碍',
+     exp:'大金重工违约则减少年收入约3,040万元（约占总收入12%），IRR下降约80-100BP',
+     con:'单项违约尚在中燃对赌补足范围内；若同期叠加电价下行，两项风险联动将双重挤压安全垫'},
+    {id:'C41', name:'关键参数假设不合理风险', level:4, db:false,
+     src:'项目处建设期，无本体历史运营数据；日充放1.5次/330天假设偏乐观，实际受电网调度约束',
+     ass:'中燃600MWh在运项目经验可直接移植；海辰电芯衰减率与标称值2%/年一致',
+     exp:'利用率低10%则年收入减少约2,000万元；若衰减超预期达3-4%，第15-20年收入递减加速',
+     con:'建议获取中燃同类在运项目实际数据（充放次数、衰减率、弃电率）作为交叉验证基础'},
+    {id:'C11', name:'资产老化/大修风险', level:4, db:false,
+     src:'第10年电池大修成本3.6亿元，当前材料未说明资金来源；液冷储能系统长周期运行数据积累有限',
+     ass:'大修资金通过折旧摊销在10年内自然积累，届时无需外部融资',
+     exp:'若大修年度经营现金流不足，需股东追加出资或外部融资；大修停产期当年分红可能归零',
+     con:'强烈建议在基金合同中设立大修专项准备金账户，明确提取规则和监管安排'},
+    {id:'C45', name:'退出周期延长风险', level:4, db:false,
+     src:'3年末优先回购权依赖中燃主动行使；REITs/ABS市场条件不成熟时，市场化退出窗口同样不确定',
+     ass:'2029年中燃财务状况仍可支撑回购；12%跳升条款足以驱动中燃主动行权',
+     exp:'若回购延期2年以上，LP资金锁定期超预期；若强制出售资产，折价风险估计10-20%',
+     con:'建议在基金合同中明确不行权后强制资产出售的触发时间节点、定价基准及中燃的配合义务'},
+    {id:'C34', name:'产业政策变动风险', level:4, db:false,
+     src:'充电免输配电费、容量电价等核心收益政策均为地方性政策，存在退坡或调整风险',
+     ass:'国家层面容量电价政策已于2026年1月正式落地，预计长期稳定；冀北四大获益模型在测算期内维持',
+     exp:'测算中容量电价、碳交易等潜在收益暂未计入，政策变化主要影响超额收益层',
+     con:'基准收益已接近门槛，任何额外负向冲击缓冲空间均有限，需密切跟踪政策动向'},
+    {id:'C24', name:'利益不一致风险', level:3, db:false,
+     src:'中燃同时身兼运营管理方（收管理费）、劣后兜底方（补足亏损）和优先回购方三重角色，存在内在利益冲突',
+     ass:'业绩对赌条款和资金监管账户制度能有效约束中燃运营决策',
+     exp:'若中燃偏好激进运营策略换取短期收益，可能加速电池衰减，损害长期资产价值',
+     con:'建议运营管理协议中设置与基金收益目标一致的考核指标，并引入独立技术顾问审查运营方案'}
+  ];
+
+  const container = document.getElementById('risk-cards-container');
+  if (!container) return;
+
+  container.innerHTML = risks.map(r => {
+    const borderColor = CL[r.level];
+    const bgColor = r.level === 5 ? 'rgba(192,57,43,0.04)' : r.level === 4 ? 'rgba(211,84,0,0.04)' : 'rgba(212,172,13,0.04)';
+    const dbBadge = r.db ? `<span style="background:rgba(192,57,43,0.12);color:#C0392B;font-size:9px;font-weight:700;padding:2px 7px;border-radius:3px;border:1px solid rgba(192,57,43,0.25);margin-left:6px">⚠ DEAL BREAKER</span>` : '';
+    return `
+    <div style="border:1px solid ${borderColor};border-left:4px solid ${borderColor};border-radius:0 5px 5px 0;background:${bgColor};margin-bottom:10px;overflow:hidden">
+      <div style="padding:10px 14px 8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-bottom:1px solid rgba(0,0,0,0.05)">
+        <span style="font-size:12px;font-weight:700;color:var(--ink)">${r.id} ${r.name}</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:${borderColor}">
+          <span style="width:7px;height:7px;border-radius:50%;background:${borderColor};display:inline-block"></span>${LL[r.level]}
+        </span>
+        ${dbBadge}
+      </div>
+      <div style="padding:8px 14px 10px;display:grid;grid-template-columns:1fr 1fr;gap:6px 14px">
+        <div>
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin-bottom:3px">风险来源</div>
+          <div style="font-size:11px;color:var(--ink2);line-height:1.6">${r.src}</div>
+        </div>
+        <div>
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin-bottom:3px">前提假设</div>
+          <div style="font-size:11px;color:var(--ink2);line-height:1.6">${r.ass}</div>
+        </div>
+        <div>
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin-bottom:3px">风险敞口</div>
+          <div style="font-size:11px;color:var(--ink2);line-height:1.6">${r.exp}</div>
+        </div>
+        <div>
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin-bottom:3px">后果影响</div>
+          <div style="font-size:11px;color:var(--ink2);line-height:1.6">${r.con}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // 第三部分列表
+  const assumptions = [
+    ['冀北峰谷价差趋势', '2026年底现货市场运行后，价差能否维持测算水平？冀北新增独储装机对价差的压缩效应有多大？'],
+    ['工程进度与并网可行性', '当前土建和设备安装进度是否能确保5月并网？海辰电芯供应链是否存在交付风险？'],
+    ['电池大修资金安排', '是否已设立或计划设立大修专项准备金账户？若无，届时再融资的备选方案是什么？'],
+    ['中燃3年后回购能力', '中燃当前负债率58%，储能资产持续扩张背景下，2029年届时的流动性状况和回购财务能力如何？'],
+    ['大金重工租赁协议效力', '协议是否已正式签署生效？期限和续约条款如何？大金重工的信用状况和履约能力？'],
+  ];
+  const ddItems = [
+    ['🔬 技术尽调（最高优先级）', '聘请独立储能技术顾问，出具工程进度核查报告和设备质量评估报告，重点核查海辰电芯实际衰减数据及利用小时数假设合理性'],
+    ['⚡ 电力市场专项研究', '委托独立电力市场咨询机构，出具冀北2026-2030年储能收益预测（含悲观/中观/乐观三情景及价差敏感性分析）'],
+    ['⚖️ 法律尽调', '重点核查土地权属（66,766㎡工业用地）、电网接入协议、股权结构无瑕疵、银行借款合同有无限制股权转让触发条款'],
+    ['📊 财务尽调', '核查建设期实际支出与预算差异，确认8.6亿元银行借款的利率条件、还款计划及交叉违约条款'],
+    ['🏦 中燃主体信用专项', '获取中燃最新年报及信用评级报告，独立评估其在2029年行使回购权的财务能力；调取在运储能项目实际运营数据'],
+  ];
+  const materials = [
+    ['完整EPC合同及最新工程进度报告', '含设备采购合同、付款进度、预计并网时间表'],
+    ['冀北电网调度部门出具的消纳能力确认函', '含电网接入批复、调度优先级说明'],
+    ['大金重工容量租赁协议正式文本', '确认协议生效状态、租赁期限、价格调整机制、违约责任条款'],
+  ];
+
+  function renderList(elId, items, accentColor) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    el.innerHTML = items.map(([title, desc], i) => `
+      <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 10px;background:#fff;border-radius:4px;border:1px solid var(--line)">
+        <span style="background:${accentColor};color:#fff;font-size:9px;font-weight:700;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">${i+1}</span>
+        <div>
+          <div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:2px">${title}</div>
+          <div style="font-size:11px;color:var(--ink3);line-height:1.55">${desc}</div>
+        </div>
+      </div>`).join('');
+  }
+
+  renderList('assumptions-list', assumptions, '#8a8780');
+  renderList('dd-list', ddItems, '#1A6B9A');
+  renderList('materials-list', materials, '#D35400');
+})();
+</script>
+</body>
+</html>
